@@ -1,0 +1,73 @@
+\def\imageSize{2cm}
+\def\preFix{fusedFrame}
+\def\dir{Images/}
+\def\arrowcolor{white}
+\def\shiftArrow{-0.8pt}
+\def\pheight{\imageSize}
+\def\pwidth{\imageSize}
+\def\MRIResX{128}
+\def\MRIResY{128}
+\def\MRIResZ{128}
+\def\SFSizeX{120}
+\def\SFSizeY{120}
+\def\SFSizeZ{64}
+\def\SFCenterX{0}
+\def\SFCenterY{0}
+\def\SFCenterZ{0}
+	\newcommand{\InVivoImages}[9]{
+		    \ifx&#9&%
+		% #1 is empty
+		\def\arrowcolor{white}
+		\else
+		\def\arrowcolor{#9}
+		% #1 is nonempty
+		\fi
+			%XZ 
+	\begin{scope}
+		\node[anchor=north west,name=XZ,#7] at (#2) {\includegraphics[width=\pwidth,height=\pheight]{\dir \preFix _#6_#3_#4_#5_xz.png}};	%Draw Picture
+		\draw[draw=\arrowcolor,-latex]  ($(XZ.north east)!#3/128!(XZ.north west)$)++(0,\shiftArrow)-- ++(0,-3pt);									%Draw Slice Arrows
+		\draw[draw=\arrowcolor,-latex]  ($(XZ.south west)!#5/128!(XZ.north west)$)++(-\shiftArrow,0)-- ++(3pt,0);									%Draw Slice Arrows
+		\coordinate(SFCenter) at ($(XZ.center)+(\SFCenterX/\MRIResX*\pwidth,\SFCenterZ/\MRIResZ*\pheight)$);	
+		\clip (XZ.north west)rectangle (XZ.south east);
+		\draw[white] (SFCenter)++(-\SFSizeX/\MRIResX/2*\pwidth,-\SFSizeZ/2/\MRIResZ*\pheight) rectangle ($(SFCenter)+(\SFSizeX/2/\MRIResX*\pwidth,\SFSizeZ/2/\MRIResZ*\pheight)$);																	%Draw SF FOV around SFcenter
+	\end{scope}
+	%YZ
+	\begin{scope}
+		\node[anchor= west, name=YZ] at (XZ.east) {\includegraphics[width=\pwidth,height=\pheight]{\dir \preFix _#6_#3_#4_#5_yz.png}};
+		\draw[draw=\arrowcolor,-latex]  ($(YZ.north east)!#4/128!(YZ.north west)$)++(0,\shiftArrow)-- ++(0,-3pt);
+		\draw[draw=\arrowcolor,-latex]  ($(YZ.south east)!#5/128!(YZ.north east)$)++(\shiftArrow,0)-- ++(-3pt,0);
+		\coordinate(SFCenter) at ($(YZ.center)+(\SFCenterY/\MRIResY*\pwidth,\SFCenterZ/\MRIResZ*\pheight)$);
+		\clip (YZ.north west)rectangle (YZ.south east);
+		\draw[white] (SFCenter)++(-\SFSizeY/\MRIResY/2*\pwidth,-\SFSizeZ/2/\MRIResZ*\pheight) rectangle ($(SFCenter)+(\SFSizeY/2/\MRIResY*\pwidth,\SFSizeZ/2/\MRIResZ*\pheight)$);
+		\node[below left=2pt,color=white] at (YZ.north east) {\textbf{#8}};
+	\end{scope}
+	%XY	
+	\begin{scope}
+		\node[anchor= north, name=XY] at (YZ.south) {\includegraphics[width=\pwidth,height=\pheight]{\dir \preFix _#6_#3_#4_#5_xy.png}};
+		\draw[draw=\arrowcolor,-latex]  ($(XY.south east)!#4/128!(XY.south west)$)++(0,-\shiftArrow)-- ++(0,3pt);
+		\draw[draw=\arrowcolor,-latex]  ($(XY.north west)!#3/128!(XY.south west)$)++(-\shiftArrow,0)-- ++(3pt,0);
+		\coordinate(SFCenter) at ($(XY.center)+(\SFCenterY/\MRIResY*\pwidth,\SFCenterX/\MRIResX*\pheight)$);
+		\clip (XY.north west) rectangle (XY.south east);
+		\draw[white] 	 (SFCenter)++(-\SFSizeY/\MRIResY/2*\pwidth,-\SFSizeX/2/\MRIResX*\pheight) rectangle ($(SFCenter)+(\SFSizeY/2/\MRIResY*\pwidth,\SFSizeX/2/\MRIResX*\pheight)$);
+	\end{scope}
+	\coordinate (#1) at ({XZ.south east});
+	\coordinate (#1C) at ({XZ.south east});
+	\coordinate (#1W) at ({XZ.south west});
+	\coordinate (#1E) at ({YZ.south east});
+	\coordinate (#1S) at ({XY.south west});
+	\coordinate (#1N) at ({XZ.north east});
+	\coordinate (#1NE) at ({YZ.north east});
+	\coordinate (#1NW) at ({XZ.north west});
+	\coordinate (#1SE) at ({XY.south east});
+	\coordinate (#1SW) at ($({XZ.south west})-(0,\pheight)$);
+	\coordinate (#1XYW) at ({XY.west});
+	\coordinate (#1XYS) at ({XY.south});
+	\coordinate (#1XYW) at ({XY.west});
+	\coordinate (#1XYE) at ({XY.east});
+	\coordinate (#1XZS) at ({XZ.south});
+	\coordinate (#1XZW) at ({XZ.west});
+	\coordinate (#1YZE) at ({YZ.east});	
+	\coordinate (#1XZN) at ({XZ.north});
+	\coordinate (#1YZN) at ({YZ.north});	
+	\def\arrowcolor{white};
+}%;}
