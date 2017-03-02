@@ -1,0 +1,10 @@
+#!/bin/bash
+if [ -z "$1" ]
+then
+  # Start Julia with 16 CPUs
+  echo starting julia with 16 CPUs
+  julia -p 16 -L ~/.julia/v0.5/MPILib/test/UsingCommandsAsync.jl ~/.julia/v0.5/MPILib/test/MPILabTest.jl
+else
+  echo starting julia with $1 CPUs
+  julia -p $1 -L ~/.julia/v0.5/MPILib/test/UsingCommandsAsync.jl ~/.julia/v0.5/MPILib/test/MPILabTest.jl
+fi
