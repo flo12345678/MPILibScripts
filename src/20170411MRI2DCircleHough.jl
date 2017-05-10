@@ -1,5 +1,7 @@
 using MPILib
 using PyCall
+using Plots
+using Combinatorics
 
 @pyimport skimage.transform as transform
 @pyimport skimage.feature as cannyAlg
@@ -94,23 +96,23 @@ for k=1:stackSize
     stack[k]=Nullable(sliceMeta)
     println("index:", sliceMeta.index," cx:",sliceMeta.cx," cy:",sliceMeta.cy," radii:",sliceMeta.radii," maxValue:",sliceMeta.maxAccum," maxIndex:",sliceMeta.maxIndex)
     #fig, ax = subplots(ncols=1, nrows=1)
-    figure(k)
-    #sliceCannyColor = colorSkimage.gray2rgb(rawMRI[k,:,:])
-    sliceCanny=convert(Array{Float64,2},sliceCannyMask)
-    sliceCannyColor = colorSkimage.gray2rgb(sliceCanny)
-    if maxIndex!= zero(0)
-      #convert(Int64,floor(radii[maxIndex]))
-      #println("radius:", radii[maxIndex],"floorradius_vox:", convert(Int64,floor(radii[maxIndex])))
-      circy, circx = drawJulia.circle_perimeter(cx[maxIndex], cy[maxIndex], convert(Int64,floor(radii[maxIndex])))
-      #println(circy,typeof(circy),size(circy))
-      #println(circx,typeof(circx),size(circx))
-      for l=1:length(circy)
-          sliceCannyColor[circx[l], circy[l],1] = 220
-          sliceCannyColor[circx[l], circy[l],2] = 20
-          sliceCannyColor[circx[l], circy[l],3] = 20
-      end
-    end
-    imshow(sliceCannyColor, cmap="gray")
+    # figure(k)
+    # #sliceCannyColor = colorSkimage.gray2rgb(rawMRI[k,:,:])
+    # sliceCanny=convert(Array{Float64,2},sliceCannyMask)
+    # sliceCannyColor = colorSkimage.gray2rgb(sliceCanny)
+    # if maxIndex!= zero(0)
+    #   #convert(Int64,floor(radii[maxIndex]))
+    #   #println("radius:", radii[maxIndex],"floorradius_vox:", convert(Int64,floor(radii[maxIndex])))
+    #   circy, circx = drawJulia.circle_perimeter(cx[maxIndex], cy[maxIndex], convert(Int64,floor(radii[maxIndex])))
+    #   #println(circy,typeof(circy),size(circy))
+    #   #println(circx,typeof(circx),size(circx))
+    #   for l=1:length(circy)
+    #       sliceCannyColor[circx[l], circy[l],1] = 220
+    #       sliceCannyColor[circx[l], circy[l],2] = 20
+    #       sliceCannyColor[circx[l], circy[l],3] = 20
+    #   end
+    # end
+    # imshow(sliceCannyColor, cmap="gray")
   else
     stack[k]=Nullable{SliceMeta}()
   end
@@ -135,6 +137,10 @@ for k=1:stackSize
           cyOrtho=Array{Int64,1}()
           accumsOrtho =Array{Float64,1}()
           radiiOrtho =Array{Float64,1}()
+          cxOrthoParent=Array{Int64,1}()
+          cyOrthoParent=Array{Int64,1}()
+          accumsOrthoParent =Array{Float64,1}()
+          radiiOrthoParent =Array{Float64,1}()
           for l=1:length(cx)
             for m=1:length(slice.cx)
               if abs(cx[l]-slice.cx[m])<=cToleranceX_vox && abs(cy[l]-slice.cy[m])<=cToleranceY_vox
@@ -142,12 +148,20 @@ for k=1:stackSize
                 push!(cyOrtho,cy[l])
                 push!(accumsOrtho,accums[l])
                 push!(radiiOrtho,radii[l])
+                push!(cxOrthoParent,slice.cx[m])
+                push!(cyOrthoParent,slice.cy[m])
+                push!(accumsOrthoParent,slice.accums[m])
+                push!(radiiOrthoParent,slice.radii[m])
               end
             end
           end
           if length(accumsOrtho)!= 0
             maxValue, maxIndex = findmax(accumsOrtho)
             slicePlus=SliceMeta(k+1, accumsOrtho, cxOrtho, cyOrtho, radiiOrtho, maxValue, maxIndex)
+            slice.cx =cxOrthoParent
+            slice.cy =cyOrthoParent
+            slice.accums =accumsOrthoParent
+            slice.radii =radiiOrthoParent
             slicePlus.parent = slice
             slice.childPlus = slicePlus
           end
@@ -167,6 +181,10 @@ for k=1:stackSize
         cyOrtho=Array{Int64,1}()
         accumsOrtho =Array{Float64,1}()
         radiiOrtho =Array{Float64,1}()
+        cxOrthoParent=Array{Int64,1}()
+        cyOrthoParent=Array{Int64,1}()
+        accumsOrthoParent =Array{Float64,1}()
+        radiiOrthoParent =Array{Float64,1}()
         for l=1:length(cx)
           for m=1:length(slice.cx)
             if abs(cx[l]-slice.cx[m])<=cToleranceX_vox && abs(cy[l]-slice.cy[m])<=cToleranceY_vox
@@ -174,20 +192,31 @@ for k=1:stackSize
               push!(cyOrtho,cy[l])
               push!(accumsOrtho,accums[l])
               push!(radiiOrtho,radii[l])
+              push!(cxOrthoParent,slice.cx[m])
+              push!(cyOrthoParent,slice.cy[m])
+              push!(accumsOrthoParent,slice.accums[m])
+              push!(radiiOrthoParent,slice.radii[m])
             end
           end
         end
         if length(accumsOrtho)!= 0
           maxValue, maxIndex = findmax(accumsOrtho)
           slicePlus=SliceMeta(k-1, accumsOrtho, cxOrtho, cyOrtho, radiiOrtho, maxValue, maxIndex)
+          slice.cx =cat(1,slice.cx,cxOrthoParent)
+          slice.cy =cat(1,slice.cy,cyOrthoParent)
+          slice.accums =cat(1,slice.accums,accumsOrthoParent)
+          slice.radii =cat(1,slice.radii,radiiOrthoParent)
           slicePlus.parent = slice
           slice.childMinus = slicePlus
         end
       end
     end
-
-  end
-end
+    maxValue, maxIndex = findmax(slice.accums)
+    slice.maxAccum=maxValue
+    slice.maxIndex=maxIndex
+    stack[k] = Nullable(slice)
+  end #end if
+end #end for
 
 # filter stack after second level
 twoChildsStack=Array{Nullable{SliceMeta},1}()
@@ -203,7 +232,88 @@ for k=1:stackSize
   end
 end
 
+# show candidates
+for cand in twoChildsStack
+  c=cand.value
+  figure(c.index*100+2)
+  sliceColor = colorSkimage.gray2rgb(rawMRI[c.index,:,:])
+  sliceColor[c.cy[c.maxIndex], c.cx[c.maxIndex],1] = 1
+  sliceColor[c.cy[c.maxIndex], c.cx[c.maxIndex],2] = 255
+  sliceColor[c.cy[c.maxIndex], c.cx[c.maxIndex],3] = 1
 
+  circx, circy = drawJulia.circle_perimeter(c.cy[c.maxIndex],c.cx[c.maxIndex], convert(Int64,floor(c.radii[c.maxIndex])))
+  for l=1:length(circy)
+      sliceColor[circx[l], circy[l],1] = 1
+      sliceColor[circx[l], circy[l],2] = 255
+      sliceColor[circx[l], circy[l],3] = 1
+  end
+  imshow(sliceColor, cmap="gray")
+
+  cP=c.childPlus
+  figure(c.index*100+3)
+  sliceColor = colorSkimage.gray2rgb(rawMRI[cP.index,:,:])
+  sliceColor[cP.cy[cP.maxIndex], cP.cx[cP.maxIndex],1] = 1
+  sliceColor[cP.cy[cP.maxIndex], cP.cx[cP.maxIndex],2] = 255
+  sliceColor[cP.cy[cP.maxIndex], cP.cx[cP.maxIndex],3] = 1
+
+  circx, circy = drawJulia.circle_perimeter(cP.cy[cP.maxIndex],cP.cx[cP.maxIndex], convert(Int64,floor(cP.radii[cP.maxIndex])))
+  for l=1:length(circy)
+      sliceColor[circx[l], circy[l],1] = 1
+      sliceColor[circx[l], circy[l],2] = 255
+      sliceColor[circx[l], circy[l],3] = 1
+  end
+  imshow(sliceColor, cmap="gray")
+
+  cM=c.childMinus
+  figure(c.index*100+1)
+  sliceColor = colorSkimage.gray2rgb(rawMRI[cM.index,:,:])
+  sliceColor[cM.cy[cM.maxIndex], cM.cx[cM.maxIndex],1] = 1
+  sliceColor[cM.cy[cM.maxIndex], cM.cx[cM.maxIndex],2] = 255
+  sliceColor[cM.cy[cM.maxIndex], cM.cx[cM.maxIndex],3] = 1
+
+  circx, circy = drawJulia.circle_perimeter(cM.cy[cM.maxIndex],cM.cx[cM.maxIndex], convert(Int64,floor(cM.radii[cM.maxIndex])))
+  for l=1:length(circy)
+      sliceColor[circx[l], circy[l],1] = 1
+      sliceColor[circx[l], circy[l],2] = 255
+      sliceColor[circx[l], circy[l],3] = 1
+  end
+  imshow(sliceColor, cmap="gray")
+
+end
+
+type Candidate3DPos
+  x
+  y
+  z
+end
+
+# calc 3d coords of candidates
+candidates= Array{Candidate3DPos,1}(length(twoChildsStack))
+for (k,cand) in enumerate(twoChildsStack)
+  c=cand.value
+  cx_mm=c.cx[c.maxIndex]*mriPixelSpacing[2]
+  cy_mm=c.cy[c.maxIndex]*mriPixelSpacing[3]
+  cz_mm=c.index*mriPixelSpacing[1]
+  candidates[k] = Candidate3DPos(cx_mm,cy_mm,cz_mm)
+end
+
+# plot candidates
+colors = ["blue","red","green","black"]
+Plots.plot(overright_figure=true)
+Plots.plot!(xaxis="y [mm]")
+Plots.plot!(yaxis="x [mm]")
+Plots.plot!(zaxis="z [mm]")
+for (k,cand) in enumerate(candidates)
+  a1=Plots.scatter!([cand.x],[cand.y],[cand.z],color=colors[k]);
+end
+Plots.plot!(aspect_ratio=:equal)
+gui()
+
+# combination "select 3" out of candidates
+combis = combinations([1,2,3,4,5],3)
+candidateSets = collect(combis)
+
+# Test all combination with sanity check
 
 # cv2[:HoughCircles](oneSlice)
 # circles = cv2.HoughCircles(img,cv2[:HOUGH_GRADIENT],1,20,param1=50,param2=30,minRadius=0,maxRadius=0)
