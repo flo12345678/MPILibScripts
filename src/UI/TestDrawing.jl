@@ -19,38 +19,35 @@ function TestDrawingWindow()
   m.grid[1,1] = Canvas()
 
   showall(w)
-
-  @guarded Gtk.draw(m.grid[1,1]) do widget
-   ctx = getgc(m.grid[1,1])
-   h = height(ctx)
-   w = width(ctx)
-   im = rand(RGB{N0f8},50,50)
-   imSize = size(im)
-  #  xsec_ = (size(im,2)-xsec+1)
-  #  ysec_ = (size(im,1)-ysec+1)
-  #  xx = w*(xsec_-0.5)/size(im,2)
-  #  yy = h*(ysec_-0.5)/size(im,1)
-  cDA = [w/2,h/2] # changed order because of image coord system
-  cIA = [imSize[1]/2,imSize[2]/2]
-  sFac = cDA ./ cIA
-  println(typeof(ctx),cDA, sFac, cIA)
-   copy!(ctx,im)
-    set_source_rgb(ctx, 0, 1, 0)
-    xy,xz,yz = getSliceSizes([50, 50, 25], [2,2,1])
-    drawRectangle(ctx, cDA,cIA, sFac, xy, [0,0])
-    drawRectangle(ctx,cDA,cIA, sFac, xz, [10,5])
-    set_line_width(ctx, 3.0)
-    Cairo.stroke(ctx)
-  end
+  im =rand(RGB{N0f8},50,50)
+  imSize = size(im)
+  xy,xz,yz = getSliceSizes([50, 50, 25], [2,2,1])
+  drawAll(m.grid[1,1], imSize, xy, [0,0])
 
   return w, m
 end
 
-function drawLine(ctx,x ,y)
-
+function drawAll(control, imSize, xy, xyOffset)
+  @guarded Gtk.draw(control) do widget
+      ctx = getgc(control)
+      copy!(ctx,im)
+      drawRectangle(ctx, imSize, xy, xyOffset)
+  end
 end
 
-function drawRectangle(ctx, cDA, cIA, sFac, xy, xyOffset)
+function drawRectangle(ctx, imSize, xy, xyOffset)
+    h = height(ctx)
+    w = width(ctx)
+    cDA = [w/2,h/2] # changed order because of image coord system
+    cIA = [imSize[1]/2,imSize[2]/2]
+    sFac = cDA ./ cIA
+    set_source_rgb(ctx, 0, 1, 0)
+    createRectangle(ctx, cDA,cIA, sFac, xy, xyOffset)
+    set_line_width(ctx, 3.0)
+    Cairo.stroke(ctx)
+end
+
+function createRectangle(ctx, cDA, cIA, sFac, xy, xyOffset)
   lowCX = cDA[1] - sFac[1] * xy[1]/2 + sFac[1] * xyOffset[1]
   lowCY= cDA[2] - sFac[2] * xy[2]/2 + sFac[1] * xyOffset[2]
   highCX =lowCX + sFac[1]*xy[1]
