@@ -285,6 +285,8 @@ type Candidate3DPos
   x
   y
   z
+  xyz
+  Candidate3DPos(x,y,z)=new(x,y,z,[x y z])
 end
 
 # calc 3d coords of candidates
@@ -298,6 +300,7 @@ for (k,cand) in enumerate(twoChildsStack)
 end
 
 # plot candidates
+figure(10000)
 colors = ["blue","red","green","black"]
 Plots.plot(overright_figure=true)
 Plots.plot!(xaxis="y [mm]")
@@ -310,10 +313,37 @@ Plots.plot!(aspect_ratio=:equal)
 gui()
 
 # combination "select 3" out of candidates
-combis = combinations([1,2,3,4,5],3)
+combis = combinations(collect(1:length(candidates)),3)
 candidateSets = collect(combis)
 
 # Test all combination with sanity check
+valid=Array{Bool,1}(length(candidateSets))
+results=Array{Any,1}(length(candidateSets))
+errors=Array{Any,1}(length(candidateSets))
+for (k,set) in enumerate(candidateSets)
+  meas=Array{Float64,2}(3,3)
+  combi = candidates[set]
+  for (l,c) in enumerate(combi)
+    meas[l,:]=c.xyz
+  end
+  valid[k],results[k],errors[k], = sanityCheck(meas, MPILib.centerModel, tolerance = 1.0)
+end
+
+# choose combination with minimal errors
+miniError=10
+miniIndex=0
+for k=1:length(valid)
+  if valid[k]
+    error = norm(errors[k])
+    if error < miniError
+      miniError = error
+      miniIndex = k
+    end
+  end
+end
+result = candidates[candidateSets[miniIndex]]
+miniError
+
 
 # cv2[:HoughCircles](oneSlice)
 # circles = cv2.HoughCircles(img,cv2[:HOUGH_GRADIENT],1,20,param1=50,param2=30,minRadius=0,maxRadius=0)
