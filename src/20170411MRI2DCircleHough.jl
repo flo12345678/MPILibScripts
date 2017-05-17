@@ -1,7 +1,10 @@
+ENV["MPILIB_UI"]="Gtk"
 using MPILib
 using PyCall
+using PyPlot
 using Plots
 using Combinatorics
+using JLD
 
 @pyimport skimage.transform as transform
 @pyimport skimage.feature as cannyAlg
@@ -16,7 +19,7 @@ using Combinatorics
 
 close("all")
 
-mriPath = joinpath("/home/fgriese/Documents/Daten/DICOMData/20160901SphereFID/","FID_test_04_20160901_009_T2st_0TE77_48TR_sag_0001.dcm")
+mriPath = joinpath("/home/griese//Desktop/20160901SphereFID/","FID_test_04_20160901_009_T2st_0TE77_48TR_sag_0001.dcm")
 mri = loaddata_dicom(mriPath)
 mriPixelSpacing = [pixelspacing(mri)...]*1000
 mriSize = [size(mri)...]
@@ -293,24 +296,22 @@ end
 candidates= Array{Candidate3DPos,1}(length(twoChildsStack))
 for (k,cand) in enumerate(twoChildsStack)
   c=cand.value
-  cx_mm=c.cx[c.maxIndex]*mriPixelSpacing[2]
-  cy_mm=c.cy[c.maxIndex]*mriPixelSpacing[3]
-  cz_mm=c.index*mriPixelSpacing[1]
+  cx_mm=c.cy[c.maxIndex]*mriPixelSpacing[3]
+  cy_mm=-c.index*mriPixelSpacing[1]
+  cz_mm=c.cx[c.maxIndex]*mriPixelSpacing[2]
   candidates[k] = Candidate3DPos(cx_mm,cy_mm,cz_mm)
 end
 
 # plot candidates
-figure(10000)
-colors = ["blue","red","green","black"]
-Plots.plot(overright_figure=true)
-Plots.plot!(xaxis="y [mm]")
-Plots.plot!(yaxis="x [mm]")
-Plots.plot!(zaxis="z [mm]")
-for (k,cand) in enumerate(candidates)
-  a1=Plots.scatter!([cand.x],[cand.y],[cand.z],color=colors[k]);
-end
-Plots.plot!(aspect_ratio=:equal)
-gui()
+# figure(10000)
+# colors = ["blue","red","green","black"]
+# Plots.plot(overright_figure=true)
+# Plots.plot!(xaxis="y [mm]",yaxis="x [mm]",zaxis="z [mm]")
+# for (k,cand) in enumerate(candidates)
+#   a1=Plots.scatter!([cand.x],[cand.y],[cand.z],color=colors[k]);
+# end
+# Plots.plot!(aspect_ratio=:equal)
+# gui()
 
 # combination "select 3" out of candidates
 combis = combinations(collect(1:length(candidates)),3)
@@ -320,6 +321,7 @@ candidateSets = collect(combis)
 valid=Array{Bool,1}(length(candidateSets))
 results=Array{Any,1}(length(candidateSets))
 errors=Array{Any,1}(length(candidateSets))
+measArray=Array{Any,1}(length(candidateSets))
 for (k,set) in enumerate(candidateSets)
   meas=Array{Float64,2}(3,3)
   combi = candidates[set]
@@ -327,6 +329,7 @@ for (k,set) in enumerate(candidateSets)
     meas[l,:]=c.xyz
   end
   valid[k],results[k],errors[k], = sanityCheck(meas, MPILib.centerModel, tolerance = 1.0)
+  measArray[k] = meas
 end
 
 # choose combination with minimal errors
@@ -342,8 +345,102 @@ for k=1:length(valid)
   end
 end
 result = candidates[candidateSets[miniIndex]]
+centersMRI_mm = measArray[miniIndex]
 miniError
+centersMRI_mm
 
+
+
+SFPath = "/opt/mpidata/20141121_130749_CalibrationScans_1_1/61/"
+datadir = "/opt/mpidata/20160905_145222_ThreeSphereFID_1_1/"
+recoargsdefault = Dict{Symbol,Any}(
+  :minFreq => 80e3,
+  :iterations => 3,
+ )
+recoargs = copy(recoargsdefault)
+recoargs[:frames] = 1:3000
+recoargs[:nAverages] = 100
+recoargs[:iterations] = 1
+recoargs[:lambd] = 0.1
+recoargs[:SNRThresh] = 5
+recoargs[:minFreq] = 80e3
+recoargs[:maxFreq] = 1250e3
+#recoargs[:bEmpty] = BrukerFile(datadir*"3")
+recoargs[:SFPath] = SFPath
+#meas = ["25","26","27"]
+meas = ["27"]
+c = getrecodata(recoargs, datadir, meas, file_ext=".nii")
+
+e25=c[1]
+data3D=e25.data[:,:,:,28]
+mpiPixelSpacing=collect(axisvalues(c[1]))[1:3]
+mpiPixelSpacing=map(x->step(x),mpiPixelSpacing)*1000
+mpiSize=collect(size(c[1])[1:3])
+
+relThresh=0.45
+numOfMaxima=3
+
+d1 = e25[Axis{:time}(28)]
+d2 = reshape(d1.data.data,size(d1)...,1)
+d3 = AxisArray(d2,ImageAxes.axes(d1)...,Axis{:time}(1.0))
+d4 = ImageMeta(d3, properties(e25))
+props = properties(e25)
+
+centersMM, valid, = @time performSanityCheck(d4, relThresh, numOfMaxima)
+cM = MPILib.centerModel
+fovMPI=mpiSize.*mpiPixelSpacing
+fovMRI=[0 0 1;1 0 0;0 1 0]*(mriSize.*mriPixelSpacing)
+fovMPICenter=fovMPI./2
+fovMRICenter=fovMRI./2
+transCenterMPIMRI=fovMRICenter.-fovMPICenter
+
+# DataViewerWidget
+permMRI=applyPermutions(mri,[3,1,2],[2])
+centersMRI_mm[:,2]=centersMRI_mm[:,2]+fovMRI[2]
+save("markers.jld","centersMM",centersMM,"centersMRI_mm",centersMRI_mm,"cM",cM)
+
+# mipMPIX,mipMPIY,mipMPIZ=mips(data3D.data)
+# figure("MPI 1 vielleicht X"),imshow(mipMPIX,interpolation="none",cmap="gray")
+# figure("MPI 2 vielleicht Y"), imshow(mipMPIY,interpolation="none",cmap="gray")
+# figure("MPI 3 vielleicht Z"), imshow(mipMPIZ,interpolation="none",cmap="gray")
+# for k=1:6 # 3 correct
+#   for l=1:8 # 3 correct
+# MRIPermFlip=applyPermutions(rawMRI,permuteCombinations()[k],flippings()[l])
+# mipMRIX,mipMRIY,mipMRIZ=mips(MRIPermFlip)
+# figure("MRI 1 $(k),$(l) vielleicht X"),imshow(mipMRIX,interpolation="none",cmap="gray")
+# figure("MRI 2 $(k),$(l) vielleicht Y"), imshow(mipMRIY,interpolation="none",cmap="gray")
+# figure("MRI 3 $(k),$(l) vielleicht Z"), imshow(mipMRIZ,interpolation="none",cmap="gray")
+# readline(STDIN)
+# end
+# end
+# figure("Result CentersMRI_mm")
+# markerMRIMeta=(15,:circle,:orange)
+# Plots.plot(overright_figure=true,aspect_ratio=:equal,title="Sphere Fiducial center coordinates",xaxis="y [mm]",yaxis="x [mm]",zaxis="z [mm]")
+# Plots.scatter!([centersMRI_mm[1,1]],[centersMRI_mm[1,2]],[centersMRI_mm[1,3]], marker=markerMRIMeta,lab="Meas: middleLeftMiddle")
+# Plots.scatter!([centersMRI_mm[2,1]],[centersMRI_mm[2,2]],[centersMRI_mm[2,3]], marker=(15,:cross,:orange), lab="Meas: frontMiddleUp")
+# Plots.scatter!([centersMRI_mm[3,1]],[centersMRI_mm[3,2]],[centersMRI_mm[3,3]], marker=(15,:diamond,:orange), lab="Meas: backRightDown")
+# markerModelMeta=(15,:circle,:blue)
+#
+# Plots.scatter!([cM[1,1]],[cM[1,2]],[cM[1,3]], marker=markerModelMeta,lab="Meas: middleLeftMiddle")
+# Plots.scatter!([cM[2,1]],[cM[2,2]],[cM[2,3]], marker=(15,:cross,:blue), lab="Meas: frontMiddleUp")
+# Plots.scatter!([cM[3,1]],[cM[3,2]],[cM[3,3]], marker=(15,:diamond,:blue), lab="Meas: backRightDown")
+# markerMPIMeta=(15,:circle,:red)
+# Plots.scatter!([centersMM[1,1]],[centersMM[1,2]],[centersMM[1,3]], marker=markerMPIMeta, lab="Meas: middleLeftMiddle")
+# Plots.scatter!([centersMM[2,1]],[centersMM[2,2]],[centersMM[2,3]], marker=(15,:cross,:red), lab="Meas: frontMiddleUp")
+# Plots.scatter!([centersMM[3,1]],[centersMM[3,2]],[centersMM[3,3]], marker=(15,:diamond,:red), lab="Meas: backRightDown")
+
+
+
+
+# mipx1,mipy1,mipz1=mips(centersData3D[:,:,:,1])
+# figure(4), imshow(mipx1,interpolation="none")
+# figure(5), imshow(mipy1,interpolation="none")
+# figure(6), imshow(mipz1,interpolation="none")
+
+
+# dw = DataViewer()
+# MPILib.updateData!(dw,c)
+# MPILib.updateData!(dw,c,permMRI)
 
 # cv2[:HoughCircles](oneSlice)
 # circles = cv2.HoughCircles(img,cv2[:HOUGH_GRADIENT],1,20,param1=50,param2=30,minRadius=0,maxRadius=0)
