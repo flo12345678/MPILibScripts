@@ -204,13 +204,13 @@ for k=1:stackSize
         end
         if length(accumsOrtho)!= 0
           maxValue, maxIndex = findmax(accumsOrtho)
-          slicePlus=SliceMeta(k-1, accumsOrtho, cxOrtho, cyOrtho, radiiOrtho, maxValue, maxIndex)
+          sliceMinus=SliceMeta(k-1, accumsOrtho, cxOrtho, cyOrtho, radiiOrtho, maxValue, maxIndex)
           slice.cx =cat(1,slice.cx,cxOrthoParent)
           slice.cy =cat(1,slice.cy,cyOrthoParent)
           slice.accums =cat(1,slice.accums,accumsOrthoParent)
           slice.radii =cat(1,slice.radii,radiiOrthoParent)
           slicePlus.parent = slice
-          slice.childMinus = slicePlus
+          slice.childMinus = sliceMinus
         end
       end
     end

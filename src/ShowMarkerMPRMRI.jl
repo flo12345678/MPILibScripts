@@ -9,13 +9,13 @@ centersMM, centersMRI_mm, cM = load("markers.jld","centersMM","centersMRI_mm","c
 
 centersMM = centersMM'
 centersMRI_mm = centersMRI_mm'
-cMTemp=copy(cM)
-for k=1:3
-  cM[k,1]=cMTemp[k,2]
-  cM[k,2]=-cMTemp[k,3]
-  cM[k,3]=cMTemp[k,1]
-end
-cM = cM'
+# cMTemp=copy(cM)
+# for k=1:3
+#   cM[k,1]=cMTemp[k,2]
+#   cM[k,2]=-cMTemp[k,3]
+#   cM[k,3]=cMTemp[k,1]
+# end
+cM = MPILib.centerModelMPI'
 
 #figure("Result CentersMRI_mm")
 Plots.plot(overright_figure=true,aspect_ratio=:equal,title="Sphere Fiducial center coordinates",xaxis="x [mm]",yaxis="y [mm]",zaxis="z [mm]")
