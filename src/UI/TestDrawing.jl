@@ -1,4 +1,4 @@
-using Gtk, Gtk.ShortNames, Cairo, MPILib, ImageMetadata
+using Gtk, GtkUtilities, Gtk.ShortNames, Cairo, MPILib, ImageMetadata
 
 import Base: getindex
 export TestDrawingWindow
@@ -17,20 +17,21 @@ function TestDrawingWindow()
   w = m["window1"]
   m.grid = m["grid1"]
   m.grid[1,1] = Canvas()
+  image =rand(RGB{N0f8},50,50)
 
   showall(w)
-  im =rand(RGB{N0f8},50,50)
-  imSize = size(im)
+
+  imSize = size(image)
   xy,xz,yz = getSliceSizes([50, 50, 25], [2,2,1])
-  drawAll(m.grid[1,1], imSize, xy, [0,0])
+  drawAll(m.grid[1,1],image, imSize, xy, [0,0])
 
   return w, m
 end
 
-function drawAll(control, imSize, xy, xyOffset)
+function drawAll(control,image, imSize, xy, xyOffset)
   @guarded Gtk.draw(control) do widget
       ctx = getgc(control)
-      copy!(ctx,im)
+      copy!(ctx,image)
       drawRectangle(ctx, imSize, xy, xyOffset)
   end
 end
