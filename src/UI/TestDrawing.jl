@@ -17,8 +17,8 @@ function TestDrawingWindow()
   w = m["window1"]
   m.grid = m["grid1"]
   m.grid[1,1] = Canvas()
-  image =rand(RGB{N0f8},50,50)
-
+  image = zeros(RGB{N0f8},50,50)
+  image[1:10,:] = RGB{N0f8}(1.0,1.0,1.0)
   showall(w)
 
   imSize = size(image)
