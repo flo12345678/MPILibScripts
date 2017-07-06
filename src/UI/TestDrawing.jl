@@ -1,4 +1,4 @@
-using Gtk, GtkUtilities, Gtk.ShortNames, Cairo, MPILib, ImageMetadata
+using Gtk, GtkUtilities, Gtk.ShortNames, Cairo, MPILib, ImageMetadata, Unitful
 
 import Base: getindex
 export TestDrawingWindow, emptyFunction, drawRectangle, calcMeta, createRectangle, getSliceSizes
@@ -17,14 +17,20 @@ function TestDrawingWindow()
   w = m["window1"]
   m.grid = m["grid1"]
   m.grid[1,1] = Canvas()
-  image = zeros(RGB{N0f8},50,50)
+  image = zeros(RGB{N0f8},100,80)
   image[1:10,:] = RGB{N0f8}(1.0,1.0,1.0)
   showall(w)
 
   imSize = size(image)
-  xy,xz,yz = getSliceSizes([50, 50, 25], [2,2,1])
-  xyOffset = [0,0]
-  drawAll(m.grid[1,1],image, imSize, xy, xyOffset)
+  fov_mm=[50, 50, 25]u"mm"
+  pixelSpacing=[2,2,1]u"mm"
+  xy_vox,xz_vox,yz_vox = getSliceSizes(fov_mm, pixelSpacing)
+  xyOffset_mm = [5,0,10]u"mm"
+  xyOffset_mm2 = [0,0,10]u"mm"
+  xyOffset_vox = mm2vox(xyOffset_mm, pixelSpacing, [1,2])
+  xyOffset_vox2 = mm2vox(xyOffset_mm2, pixelSpacing, [1,2])
+  println("xyOffset_vox",xyOffset_vox)
+  drawAll(m.grid[1,1],image, imSize, xy_vox, xyOffset_vox)
   println("hallo")
   m.grid[1,1].mouse.button3press = @guarded (widget, event) -> begin
     ctx = getgc(m.grid[1,1])
@@ -38,9 +44,10 @@ function TestDrawingWindow()
     #println("center", center(ctx))
     println(typeof(ctx))
     @guarded Gtk.draw(m.grid[1,1]) do widget
-      drawAll(m.grid[1,1],image, imSize, xy, xyOffset)
+      drawAll(m.grid[1,1],image, imSize, xy_vox, xyOffset_vox)
       println("mouse event")
-      drawRectangle(ctx, h,w,p, imSize, xy, xyOffset, rgb=[0,0,1],lineWidth=3.0)
+      drawRectangle(ctx, h,w,p, imSize, xy_vox, xyOffset_vox, rgb=[0,0,1],lineWidth=3.0)
+      drawRectangle(ctx, h,w,p, imSize, xy_vox, xyOffset_vox2, rgb=[0,0,1],lineWidth=3.0)
     end
     #m.grid[1,1].mouse.button3press=emptyFunction
 
@@ -53,6 +60,14 @@ function TestDrawingWindow()
    end
 
   return w, m
+end
+
+function mm2vox(p, pixelSpacing, dims)
+  return p[dims]./pixelSpacing[dims]
+end
+
+function vox2mm(p, pixelSpacing, dims)
+  return p.*pixelSpacing[dims]
 end
 
 function emptyFunction(widget::Gtk.GtkCanvas, event::Gtk.GdkEventButton)
